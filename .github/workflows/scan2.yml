@@ -1,1 +1,96 @@
-
+name: Scansione Common Crawl 2
+ 
+on:
+  schedule:
+    - cron: '0 3,9,15,21 * * *'   # sfalsato di 3 ore rispetto al primo (che gira su 0,6,12,18)
+  workflow_dispatch: {}
+ 
+concurrency:
+  group: scansione-common-crawl-2
+  cancel-in-progress: false
+ 
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    timeout-minutes: 350
+    permissions:
+      contents: write
+ 
+    steps:
+      - name: Checkout codice pubblico (questo repo)
+        uses: actions/checkout@v7
+ 
+      - name: Checkout dati privati
+        uses: actions/checkout@v7
+        with:
+          repository: dannythedoddo/Crawler-scan-data
+          token: ${{ secrets.DATA_TOKEN2 }}
+          path: data
+ 
+      - name: Setup Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: '3.12'
+ 
+      - name: Installa dipendenze
+        run: pip install -r requirements2.txt
+ 
+      - name: Esegui la scansione
+        env:
+          DATA_DIR: data
+          MAX_RUNTIME_MINUTES: '290'
+          LUNGHEZZA_MINIMA: '12'
+        run: python -u prova2.py
+ 
+      - name: Mostra lo stato del giorno nei log
+        run: cat data/stato_oggi2.txt
+ 
+      - name: Salva i risultati nel repo privato
+        run: |
+          cd data
+          git config user.email "actions@github.com"
+          git config user.name "GitHub Actions"
+          git add -A
+          git commit -m "Aggiornamento automatico 2 $(date -u +'%Y-%m-%d %H:%M UTC')" || echo "Nessuna modifica da salvare"
+ 
+          tentativo_riuscito=0
+          for i in 1 2 3 4 5; do
+            if git push; then
+              tentativo_riuscito=1
+              break
+            fi
+            echo "Push rifiutato (tentativo $i/5): qualcun altro ha scritto nel frattempo. Sincronizzo e riprovo tra 10s..."
+            sleep 10
+            git pull --rebase origin main
+          done
+ 
+          if [ "$tentativo_riuscito" -ne 1 ]; then
+            echo "::error::Impossibile salvare i risultati dopo 5 tentativi. Controllare manualmente."
+            exit 1
+          fi
+ 
+      - name: Tieni vivo il repo pubblico (evita disattivazione cron dopo 60gg di inattività)
+        if: always()
+        run: |
+          git config user.email "actions@github.com"
+          git config user.name "GitHub Actions"
+ 
+          tentativo_riuscito=0
+          for i in 1 2 3 4 5; do
+            git fetch origin main
+            git reset --hard origin/main
+ 
+            echo "Ultima esecuzione: $(date -u +'%Y-%m-%d %H:%M UTC')" > last_run.log
+            git add last_run.log
+            git commit -m "Keep-alive $(date -u +'%Y-%m-%d %H:%M UTC')" || echo "Nessuna modifica da salvare"
+ 
+            if git push; then
+              tentativo_riuscito=1
+              break
+            fi
+            echo "Push rifiutato (tentativo $i/5): riprovo tra 10s ripartendo dall'ultima versione remota..."
+            sleep 10
+          done
+ 
+          if [ "$tentativo_riuscito" -ne 1 ]; then
+            echo "::warning::Keep-alive non riuscito dopo 5 tentativi (non blocca la scansione, solo il log di attività)."
