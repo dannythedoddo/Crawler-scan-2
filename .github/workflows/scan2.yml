@@ -24,7 +24,7 @@ jobs:
         uses: actions/checkout@v7
         with:
           repository: dannythedoddo/Crawler-scan-data
-          token: ${{ secrets.DATA_TOKEN2 }}
+          token: ${{ secrets.private_token }}
           path: data
  
       - name: Setup Python
