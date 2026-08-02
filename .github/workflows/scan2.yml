@@ -69,6 +69,7 @@ jobs:
             exit 1
           fi
  
+ 
       - name: Tieni vivo il repo pubblico (evita disattivazione cron dopo 60gg di inattività)
         if: always()
         run: |
@@ -92,5 +93,4 @@ jobs:
             sleep 10
           done
  
-          if [ "$tentativo_riuscito" -ne 1 ]; then
-            echo "::warning::Keep-alive non riuscito dopo 5 tentativi (non blocca la scansione, solo il log di attività)."
+          [ "$tentativo_riuscito" -eq 1 ] || echo "::warning::Keep-alive non riuscito dopo 5 tentativi (non blocca la scansione, solo il log di attivita)."
